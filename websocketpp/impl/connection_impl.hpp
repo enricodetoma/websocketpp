@@ -1829,11 +1829,13 @@ void connection<config>::write_frame() {
 
     typename std::vector<message_ptr>::iterator it;
     for (it = m_current_msgs.begin(); it != m_current_msgs.end(); ++it) {
-        std::string const & header = (*it)->get_header();
-        std::string const & payload = (*it)->get_payload();
+        typename config::message_type::header_type const & header =
+            (*it)->get_header();
+        typename config::message_type::payload_type const & payload =
+            (*it)->get_payload();
 
-        m_send_buffer.push_back(transport::buffer(header.c_str(),header.size()));
-        m_send_buffer.push_back(transport::buffer(payload.c_str(),payload.size()));   
+        m_send_buffer.push_back(transport::buffer(header.data(),header.size()));
+        m_send_buffer.push_back(transport::buffer(payload.data(),payload.size()));
     }
 
     // Print detailed send stats if those log levels are enabled
@@ -1856,15 +1858,25 @@ void connection<config>::write_frame() {
             
             header << "[" << i << "] (" 
                    << m_current_msgs[i]->get_header().size() << ") " 
-                   << utility::to_hex(m_current_msgs[i]->get_header()) << "\n";
+                   << utility::to_hex(
+                        m_current_msgs[i]->get_header().data(),
+                        m_current_msgs[i]->get_header().size()
+                      )
+                   << "\n";
 
             if (m_alog->static_test(log::alevel::frame_payload)) {
             if (m_alog->dynamic_test(log::alevel::frame_payload)) {
                 payload << "[" << i << "] (" 
                         << m_current_msgs[i]->get_payload().size() << ") ["<<m_current_msgs[i]->get_opcode()<<"] "
                         << (m_current_msgs[i]->get_opcode() == frame::opcode::text ? 
-                                m_current_msgs[i]->get_payload() : 
-                                utility::to_hex(m_current_msgs[i]->get_payload())
+                                std::string(
+                                    m_current_msgs[i]->get_payload().begin(),
+                                    m_current_msgs[i]->get_payload().end()
+                                ) :
+                                utility::to_hex(
+                                    m_current_msgs[i]->get_payload().data(),
+                                    m_current_msgs[i]->get_payload().size()
+                                )
                            ) 
                         << "\n";
             }
@@ -1956,20 +1968,22 @@ void connection<config>::process_control_frame(typename config::message_type::pt
 
     if (op == frame::opcode::PING) {
         bool should_reply = true;
+        std::string payload(msg->get_payload().begin(),msg->get_payload().end());
 
         if (m_ping_handler) {
-            should_reply = m_ping_handler(m_connection_hdl, msg->get_payload());
+            should_reply = m_ping_handler(m_connection_hdl,payload);
         }
 
         if (should_reply) {
-            this->pong(msg->get_payload(),ec);
+            this->pong(payload,ec);
             if (ec) {
                 log_err(log::elevel::devel,"Failed to send response pong",ec);
             }
         }
     } else if (op == frame::opcode::PONG) {
+        std::string payload(msg->get_payload().begin(),msg->get_payload().end());
         if (m_pong_handler) {
-            m_pong_handler(m_connection_hdl, msg->get_payload());
+            m_pong_handler(m_connection_hdl,payload);
         }
         if (m_ping_timer) {
             m_ping_timer->cancel();

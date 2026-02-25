@@ -140,7 +140,8 @@ private:
  * convenience function that creates a validator, validates a complete string
  * and returns the result.
  */
-inline bool validate(std::string const & s) {
+template <typename string_like_type>
+inline bool validate(string_like_type const & s) {
     validator v;
     if (!v.decode(s.begin(),s.end())) {
         return false;

@@ -545,7 +545,8 @@ public:
      * @param [out] out String to append compressed bytes to
      * @return Error or status code
      */
-    lib::error_code compress(std::string const & in, std::string & out) {
+    template <typename in_buffer_type, typename out_buffer_type>
+    lib::error_code compress(in_buffer_type const & in, out_buffer_type & out) {
         if (!m_initialized) {
             return make_error_code(error::uninitialized);
         }
@@ -554,12 +555,14 @@ public:
 
         if (in.empty()) {
             uint8_t buf[6] = {0x02, 0x00, 0x00, 0x00, 0xff, 0xff};
-            out.append((char *)(buf),6);
+            out.insert(out.end(),buf,buf+6);
             return lib::error_code();
         }
 
         m_dstate.avail_in = in.size();
-        m_dstate.next_in = (unsigned char *)(const_cast<char *>(in.data()));
+        m_dstate.next_in = reinterpret_cast<unsigned char *>(
+            const_cast<char *>(in.data())
+        );
 
         do {
             // Output to local buffer
@@ -570,7 +573,8 @@ public:
 
             output = m_compress_buffer_size - m_dstate.avail_out;
 
-            out.append((char *)(m_compress_buffer.get()),output);
+            unsigned char * begin = m_compress_buffer.get();
+            out.insert(out.end(),begin,begin+output);
         } while (m_dstate.avail_out == 0);
 
         return lib::error_code();
@@ -583,8 +587,9 @@ public:
      * @param out String to append decompressed bytes to
      * @return Error or status code
      */
-    lib::error_code decompress(uint8_t const * buf, size_t len, std::string &
-        out)
+    template <typename out_buffer_type>
+    lib::error_code decompress(uint8_t const * buf, size_t len,
+        out_buffer_type & out)
     {
         if (!m_initialized) {
             return make_error_code(error::uninitialized);
@@ -605,10 +610,9 @@ public:
                 return make_error_code(error::zlib_error);
             }
 
-            out.append(
-                reinterpret_cast<char *>(m_decompress_buffer.get()),
-                m_compress_buffer_size - m_istate.avail_out
-            );
+            unsigned char * begin = m_decompress_buffer.get();
+            size_t const output = m_compress_buffer_size - m_istate.avail_out;
+            out.insert(out.end(),begin,begin+output);
         } while (m_istate.avail_out == 0);
 
         return lib::error_code();

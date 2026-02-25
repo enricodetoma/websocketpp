@@ -339,7 +339,7 @@ public:
             return make_error_code(error::invalid_opcode);
         }
 
-        std::string& i = in->get_raw_payload();
+        typename message_type::payload_type & i = in->get_raw_payload();
         //std::string& o = out->get_raw_payload();
 
         // validate payload utf8

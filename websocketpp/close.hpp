@@ -291,8 +291,9 @@ union code_converter {
  * @param [out] ec Set to indicate what error occurred, if any.
  * @return The extracted value
  */
-inline status::value extract_code(std::string const & payload, lib::error_code
-    & ec)
+template <typename payload_type>
+inline status::value extract_code(payload_type const & payload,
+    lib::error_code & ec)
 {
     ec = lib::error_code();
 
@@ -330,8 +331,9 @@ inline status::value extract_code(std::string const & payload, lib::error_code
  * @param [out] ec Set to indicate what error occurred, if any.
  * @return The reason string.
  */
-inline std::string extract_reason(std::string const & payload, lib::error_code
-    & ec)
+template <typename payload_type>
+inline std::string extract_reason(payload_type const & payload,
+    lib::error_code & ec)
 {
     std::string reason;
     ec = lib::error_code();

@@ -31,6 +31,9 @@
 #include <websocketpp/common/memory.hpp>
 #include <websocketpp/frame.hpp>
 
+#include <absl/container/inlined_vector.h>
+
+#include <cstddef>
 #include <string>
 
 namespace websocketpp {
@@ -80,7 +83,12 @@ namespace message_buffer {
  *
  *
  */
-template <template<class> class con_msg_manager>
+template <
+    template<class> class con_msg_manager,
+    size_t payload_inline_size = 128,
+    size_t extension_data_inline_size = 16,
+    size_t header_inline_size = 16
+>
 class message {
 public:
     typedef lib::shared_ptr<message> ptr;
@@ -88,6 +96,10 @@ public:
     typedef con_msg_manager<message> con_msg_man_type;
     typedef typename con_msg_man_type::ptr con_msg_man_ptr;
     typedef typename con_msg_man_type::weak_ptr con_msg_man_weak_ptr;
+    typedef absl::InlinedVector<char, payload_inline_size> payload_type;
+    typedef absl::InlinedVector<char, extension_data_inline_size>
+        extension_data_type;
+    typedef absl::InlinedVector<char, header_inline_size> header_type;
 
     /// Construct an empty message
     /**
@@ -221,7 +233,7 @@ public:
      * This value is typically set by a websocket protocol processor
      * and shouldn't be tampered with.
      */
-    std::string const & get_header() const {
+    header_type const & get_header() const {
         return m_header;
     }
 
@@ -232,10 +244,15 @@ public:
      * @param header A string to set the header to.
      */
     void set_header(std::string const & header) {
-        m_header = header;
+        m_header.assign(header.begin(),header.end());
     }
 
-    std::string const & get_extension_data() const {
+    void set_header(void const * header, size_t len) {
+        char const * h = static_cast<char const *>(header);
+        m_header.assign(h,h+len);
+    }
+
+    extension_data_type const & get_extension_data() const {
         return m_extension_data;
     }
 
@@ -243,7 +260,7 @@ public:
     /**
      * @return A const reference to the message's payload string
      */
-    std::string const & get_payload() const {
+    payload_type const & get_payload() const {
         return m_payload;
     }
 
@@ -251,7 +268,7 @@ public:
     /**
      * @return A reference to the message's payload string
      */
-    std::string & get_raw_payload() {
+    payload_type & get_raw_payload() {
         return m_payload;
     }
 
@@ -262,7 +279,12 @@ public:
      * @param payload A string to set the payload to.
      */
     void set_payload(std::string const & payload) {
-        m_payload = payload;
+        m_payload.assign(payload.begin(),payload.end());
+    }
+
+    template <typename payload_buffer_type>
+    void set_payload(payload_buffer_type const & payload) {
+        m_payload.assign(payload.begin(),payload.end());
     }
 
     /// Set payload data
@@ -285,7 +307,12 @@ public:
      * @param payload A string containing the data array to append.
      */
     void append_payload(std::string const & payload) {
-        m_payload.append(payload);
+        m_payload.insert(m_payload.end(),payload.begin(),payload.end());
+    }
+
+    template <typename payload_buffer_type>
+    void append_payload(payload_buffer_type const & payload) {
+        m_payload.insert(m_payload.end(),payload.begin(),payload.end());
     }
 
     /// Append payload data
@@ -297,7 +324,8 @@ public:
      */
     void append_payload(void const * payload, size_t len) {
         m_payload.reserve(m_payload.size()+len);
-        m_payload.append(static_cast<char const *>(payload),len);
+        char const * pl = static_cast<char const *>(payload);
+        m_payload.insert(m_payload.end(),pl,pl+len);
     }
 
     /// Recycle the message
@@ -324,9 +352,9 @@ public:
     }
 private:
     con_msg_man_weak_ptr        m_manager;
-    std::string                 m_header;
-    std::string                 m_extension_data;
-    std::string                 m_payload;
+    header_type                 m_header;
+    extension_data_type         m_extension_data;
+    payload_type                m_payload;
     frame::opcode::value        m_opcode;
     bool                        m_prepared;
     bool                        m_fin;

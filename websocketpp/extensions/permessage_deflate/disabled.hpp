@@ -106,7 +106,8 @@ public:
      * @param [out] out String to append compressed bytes to
      * @return Error or status code
      */
-    lib::error_code compress(std::string const &, std::string &) {
+    template <typename in_buffer_type, typename out_buffer_type>
+    lib::error_code compress(in_buffer_type const &, out_buffer_type &) {
         return make_error_code(error::disabled);
     }
 
@@ -117,7 +118,8 @@ public:
      * @param out String to append decompressed bytes to
      * @return Error or status code
      */
-    lib::error_code decompress(uint8_t const *, size_t, std::string &) {
+    template <typename out_buffer_type>
+    lib::error_code decompress(uint8_t const *, size_t, out_buffer_type &) {
         return make_error_code(error::disabled);
     }
 };

@@ -452,7 +452,8 @@ public:
                     } else {
                         // Fetch the underlying payload buffer from the data message we
                         // are writing into.
-                        std::string & out = m_data_msg.msg_ptr->get_raw_payload();
+                        typename message_type::payload_type & out =
+                            m_data_msg.msg_ptr->get_raw_payload();
                         
                         if (out.size() + m_bytes_needed > base::m_max_message_size) {
                             ec = make_error_code(error::message_too_big);
@@ -516,7 +517,8 @@ public:
      * @return A code indicating errors, if any
      */
     lib::error_code finalize_message() {
-        std::string & out = m_current_msg->msg_ptr->get_raw_payload();
+        typename message_type::payload_type & out =
+            m_current_msg->msg_ptr->get_raw_payload();
 
         // if the frame is compressed, append the compression
         // trailer and flush the compression buffer.
@@ -615,8 +617,8 @@ public:
             return make_error_code(error::invalid_opcode);
         }
 
-        std::string& i = in->get_raw_payload();
-        std::string& o = out->get_raw_payload();
+        typename message_type::payload_type & i = in->get_raw_payload();
+        typename message_type::payload_type & o = out->get_raw_payload();
 
         // validate payload utf8
         if (op == frame::opcode::TEXT && !utf8_validator::validate(i)) {
@@ -805,7 +807,8 @@ protected:
             // TODO: SIMD masking
         }
 
-        std::string & out = m_current_msg->msg_ptr->get_raw_payload();
+        typename message_type::payload_type & out =
+            m_current_msg->msg_ptr->get_raw_payload();
         size_t offset = out.size();
 
         // decompress message if needed.
@@ -819,7 +822,7 @@ protected:
             }
         } else {
             // No compression, straight copy
-            out.append(reinterpret_cast<char *>(buf),len);
+            out.insert(out.end(),buf,buf+len);
         }
 
         // validate unmasked, decompressed values
@@ -958,7 +961,8 @@ protected:
      * @param [out] o The output string.
      * @param [in] key The masking key to use for masking/unmasking
      */
-    void masked_copy (std::string const & i, std::string & o,
+    template <typename in_type, typename out_type>
+    void masked_copy (in_type const & i, out_type & o,
         frame::masking_key_type key) const
     {
         frame::byte_mask(i.begin(),i.end(),o.begin(),key);
@@ -994,7 +998,7 @@ protected:
 
         frame::basic_header h(op,payload.size(),true,masked);
 
-        std::string & o = out->get_raw_payload();
+        typename message_type::payload_type & o = out->get_raw_payload();
         o.resize(payload.size());
 
         if (masked) {
